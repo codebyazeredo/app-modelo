@@ -28,8 +28,10 @@ core/            camada compartilhada — NÃO deve conter regra de negócio
                      screenTitles (título automático do AppHeader por rota)
   offline/           outbox + cache sobre AsyncStorage + OfflineContext +
                      SyncScreen (UI para ver/gerenciar a fila offline)
+  notifications/     NotificacoesScreen — central de notificações in-app
   services/storage.js       SecureStore (nativo) / localStorage (web)
   services/pushNotifications.js + pushApi.js   registro de push (Expo Push)
+  services/notificacoesApi.js   lista/marcar-lida das notificações in-app
   styles/common.js   tokens de estilo reutilizáveis entre telas
   theme/colors.js    paleta de cores
   ui/                componentes de UI (AppHeader, Footer, ErrorView, ...)
@@ -75,6 +77,11 @@ formato.
 - `POST /push/registrar-token` / `POST /push/remover-token` — header
   `Authorization: Bearer <token>`, body `{ token, plataforma }` (usado por
   `core/services/pushNotifications.js`; veja a seção "Push Notifications")
+- `GET /notificacoes` → `200 { notificacoes: [{ id, tipo, titulo, mensagem,
+  data_criacao, lida }] }`; `POST /notificacoes/marcar-lida/:id`;
+  `POST /notificacoes/marcar-todas-lidas` — usados por
+  `core/notifications/NotificacoesScreen.js` (histórico in-app do que foi
+  enviado por push, com lida/não lida)
 - Demais chamadas autenticadas: header `Authorization: Bearer <token>`,
   feitas via `apiFetch(path, options, token)` (`core/api/client.js`).
 
@@ -246,6 +253,18 @@ trate `Notifications.addNotificationResponseReceivedListener` (ex.: em
 **Não precisa de push?** Remova a chamada em `RootNavigator.js`, apague
 `core/services/pushNotifications.js`/`pushApi.js` e as dependências
 `expo-notifications`/`expo-device`/`expo-constants` do `package.json`.
+
+### Central de notificações in-app
+
+`core/notifications/NotificacoesScreen.js` é independente do push acima —
+é só uma lista (com lida/não lida) do que o backend guardou como
+notificação do usuário, acessível pelo ícone de sino em
+`modules/Home/screens/HomeScreen.js`. Ajuste `TIPO_ICONES`
+(`NotificacoesScreen.js`) para dar um ícone/cor específico a cada `tipo` de
+notificação do seu domínio — tipos sem entrada usam o ícone padrão.
+**Não precisa?** Apague `core/notifications/`,
+`core/services/notificacoesApi.js`, a rota `Notificacoes` em
+`RootNavigator.js` e o botão de sino em `HomeScreen.js`.
 
 ## Segurança
 

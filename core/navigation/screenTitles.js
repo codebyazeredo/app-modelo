@@ -7,6 +7,7 @@ const SCREEN_TITLES = {
   Configuracoes: 'Configurações',
   Sync: 'Sincronização',
   TrocarSenha: 'Alterar Senha',
+  Notificacoes: 'Notificações',
   Login: 'Entrar',
   RecuperarSenha: 'Recuperar Senha',
 };

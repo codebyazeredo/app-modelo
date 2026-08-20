@@ -7,6 +7,7 @@ import LoadingView from '../ui/LoadingView';
 import AppTabs from './AppTabs';
 import { navigationRef } from './navigationRef';
 import SyncScreen from '../offline/SyncScreen';
+import NotificacoesScreen from '../notifications/NotificacoesScreen';
 import { registrarPushToken } from '../services/pushNotifications';
 import { AuthModule } from '@modules/Auth/config/module.config';
 import TrocarSenhaScreen from '@modules/Home/screens/TrocarSenhaScreen';
@@ -43,6 +44,7 @@ function MainStack() {
       <Stack.Screen name="Tabs" component={AppTabs} />
       <Stack.Screen name="Sync" component={SyncScreen} />
       <Stack.Screen name="TrocarSenha" component={TrocarSenhaScreen} />
+      <Stack.Screen name="Notificacoes" component={NotificacoesScreen} />
     </Stack.Navigator>
   );
 }
