@@ -34,6 +34,7 @@ export async function outboxEnqueue(req) {
     endpoint: req.endpoint,
     method: req.method ?? 'POST',
     body: req.body ?? null,
+    contentType: req.contentType ?? null,
     label: req.label ?? req.endpoint,
     createdAt: Date.now(),
     status: 'pending',

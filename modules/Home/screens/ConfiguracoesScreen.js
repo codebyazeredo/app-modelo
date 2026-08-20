@@ -7,7 +7,7 @@ import { useOffline } from '@core/offline/OfflineContext';
 import { apiLogout } from '@core/auth/authApi';
 import styles from '../styles/configuracoes';
 
-export default function ConfiguracoesScreen() {
+export default function ConfiguracoesScreen({ navigation }) {
   const { token, signOut } = useAuth();
   const { pendentes, syncing, sync } = useOffline();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -49,7 +49,21 @@ export default function ConfiguracoesScreen() {
               : <Text style={styles.btnPrimaryText}>Sincronizar agora</Text>
             }
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Sync')} activeOpacity={0.7}>
+            <Text style={styles.linkText}>Ver fila detalhada</Text>
+          </TouchableOpacity>
         </View>
+
+        <Text style={styles.sectionTitle}>Conta</Text>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('TrocarSenha')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.row}>
+            <Text style={styles.rowText}>Alterar senha</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.logoutBtn}

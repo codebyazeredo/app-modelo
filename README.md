@@ -22,16 +22,23 @@ core/            camada compartilhada — NÃO deve conter regra de negócio
   api/client.js      cliente HTTP genérico (apiFetch)
   auth/              AuthContext (login/logout/sessão) + authApi
   config/env.js      leitura da URL da API
-  navigation/        RootNavigator (auth) e AppTabs (bottom tabs pós-login)
-  offline/           outbox + cache sobre AsyncStorage + OfflineContext
-  services/storage.js  SecureStore (nativo) / localStorage (web)
+  navigation/        RootNavigator (stack com abas + telas empilhadas),
+                     AppTabs (bottom tabs pós-login), navigationRef
+                     (navegar fora da árvore de componentes) e
+                     screenTitles (título automático do AppHeader por rota)
+  offline/           outbox + cache sobre AsyncStorage + OfflineContext +
+                     SyncScreen (UI para ver/gerenciar a fila offline)
+  services/storage.js       SecureStore (nativo) / localStorage (web)
+  services/pushNotifications.js + pushApi.js   registro de push (Expo Push)
   styles/common.js   tokens de estilo reutilizáveis entre telas
   theme/colors.js    paleta de cores
   ui/                componentes de UI (AppHeader, Footer, ErrorView, ...)
+  utils/             helpers puros (responsive, formatters, dateHelpers)
 
 modules/
   Auth/              telas de login e recuperação de senha
   Home/              MÓDULO DE EXEMPLO — troque pelas telas do app real
+                     (inclui TrocarSenhaScreen, que é genérica e pode ficar)
 
 config/
   modules.config.js  agrega as abas de cada módulo em getAppTabs()
@@ -62,6 +69,12 @@ formato.
 - `POST /auth/login` — body `{ login, senha }` → `200 { token, user }`
   (qualquer erro deve retornar status não-2xx e, se possível, `{ message }`)
 - `POST /auth/logout` — header `Authorization: Bearer <token>`
+- `POST /auth/trocar-senha` — header `Authorization: Bearer <token>`, body
+  `{ senha_atual, senha, confirmacao }` (usado por
+  `modules/Home/screens/TrocarSenhaScreen.js`)
+- `POST /push/registrar-token` / `POST /push/remover-token` — header
+  `Authorization: Bearer <token>`, body `{ token, plataforma }` (usado por
+  `core/services/pushNotifications.js`; veja a seção "Push Notifications")
 - Demais chamadas autenticadas: header `Authorization: Bearer <token>`,
   feitas via `apiFetch(path, options, token)` (`core/api/client.js`).
 
@@ -83,9 +96,12 @@ Quatro peças, cada uma com uma responsabilidade:
 
 - **`outbox.js`** — fila de requisições de **escrita** pendentes
   (`POST`/`PUT`/`DELETE`). Cada item tem `{ id, endpoint, method, body,
-  label, status, error, tries, createdAt }`. `status` começa em `'pending'`
-  e vira `'error'` se o servidor recusar a requisição (ex.: validação
-  falhou) — fica só em `'pending'` enquanto o problema for falta de rede.
+  contentType, label, status, error, tries, createdAt }`. `status` começa em
+  `'pending'` e vira `'error'` se o servidor recusar a requisição (ex.:
+  validação falhou) — fica só em `'pending'` enquanto o problema for falta
+  de rede. `contentType` é opcional: só use quando o `body` já é o payload
+  final pronto para trafegar como está (ex.: `FormData` de um upload) — veja
+  "Enfileirar um upload" abaixo.
 - **`cache.js`** — cache simples de **leitura**: `cacheSet(key, value)` /
   `cacheGet(key)` / `cacheRemove(key)`, com timestamp (`savedAt`) de quando
   foi salvo. Serve para mostrar o último dado conhecido quando não há
@@ -98,8 +114,12 @@ Quatro peças, cada uma com uma responsabilidade:
   conexão caiu no meio da sincronização.
 - **`OfflineContext.js`** — expõe tudo isso via `useOffline()`: `itens`,
   `pendentes` (contagem), `syncing`, `sync(token)`, `remover(id)`,
-  `limparErros()`. É o que a tela `modules/Home/screens/ConfiguracoesScreen.js`
-  usa para mostrar quantos itens estão pendentes e disparar a sincronização.
+  `limparErros()`. É usado tanto pelo resumo em
+  `modules/Home/screens/ConfiguracoesScreen.js` (contagem + botão rápido de
+  sync) quanto por **`SyncScreen.js`** — tela completa (empilhada sobre as
+  abas, ver `core/navigation/RootNavigator.js`) que lista cada item
+  pendente/com erro, com opção de descartar individualmente ou todos com
+  erro de uma vez.
 
 Hoje a sincronização é **manual** (botão "Sincronizar agora") — não há
 listener de reconexão de rede nem sync em background. Isso é intencional
@@ -125,6 +145,25 @@ await outboxEnqueue({
 O item fica na fila até alguém chamar `useOffline().sync(token)` (o botão
 em Configurações já faz isso) — em caso de sucesso ele some da fila
 sozinho.
+
+**Enfileirar um upload (multipart) que deve sobreviver offline** — passe
+`contentType` e um `body` já pronto (não serializado em JSON):
+
+```js
+const form = new FormData();
+form.append('arquivo', { uri, name: 'foto.jpg', type: 'image/jpeg' });
+
+await outboxEnqueue({
+  endpoint: '/uploads',
+  method: 'POST',
+  body: form,
+  contentType: 'multipart/form-data',
+  label: 'Upload de foto',
+});
+```
+
+`syncManager.js` detecta `contentType` e reenvia o `body` como está (sem
+`JSON.stringify`) quando a sincronização rodar.
 
 **Cachear uma leitura para exibir algo quando estiver offline:**
 
@@ -177,6 +216,36 @@ async function carregarTarefas(token) {
 
 Em `app.json`, ajuste `expo.name`, `expo.slug` e `expo.android.package` /
 `expo.ios.bundleIdentifier`. Troque os ícones em `assets/` pelos do novo app.
+
+## Push Notifications
+
+`core/services/pushNotifications.js` + `pushApi.js` implementam o fluxo
+Expo Push (que usa FCM no Android e APNs no iOS por baixo dos panos):
+pedir permissão, gerar o token do dispositivo e registrá-lo no backend.
+`core/navigation/RootNavigator.js` já chama `registrarPushToken(token)`
+automaticamente (best-effort, nunca trava login) assim que há uma sessão
+válida.
+
+**Sem configuração adicional, a chamada é um no-op seguro** — sem
+`expo.extra.eas.projectId` em `app.json`, `registrarPushToken` retorna
+`null` e não faz nada. Para habilitar de fato:
+
+1. `npx eas init` (cria o projeto no EAS e preenche `extra.eas.projectId`
+   em `app.json`).
+2. Para Android, configure o Firebase (FCM) via `eas credentials` ou
+   `google-services.json` — veja a documentação do Expo sobre
+   "Push notifications setup".
+3. Ajuste os endpoints em `core/services/pushApi.js`
+   (`/push/registrar-token`, `/push/remover-token`) para o contrato real
+   do seu backend.
+
+Tocar numa notificação recebida ainda não navega para lugar nenhum —
+trate `Notifications.addNotificationResponseReceivedListener` (ex.: em
+`App.js`) se o app precisar disso.
+
+**Não precisa de push?** Remova a chamada em `RootNavigator.js`, apague
+`core/services/pushNotifications.js`/`pushApi.js` e as dependências
+`expo-notifications`/`expo-device`/`expo-constants` do `package.json`.
 
 ## Segurança
 

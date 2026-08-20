@@ -11,7 +11,12 @@ export async function sincronizar(token) {
 
   for (const item of pendentes) {
     try {
-      await apiFetch(item.endpoint, { method: item.method, body: JSON.stringify(item.body) }, token);
+      // Itens enfileirados com `contentType` (ex.: upload de imagem em
+      // multipart/form-data) trafegam o body como está, sem re-serializar em JSON.
+      const options = item.contentType
+        ? { method: item.method, headers: { 'Content-Type': item.contentType }, body: item.body }
+        : { method: item.method, body: JSON.stringify(item.body) };
+      await apiFetch(item.endpoint, options, token);
       await outboxRemove(item.id);
       enviados += 1;
     } catch (err) {

@@ -24,3 +24,11 @@ export async function apiLogout(token) {
     // logout local prossegue mesmo se a chamada ao servidor falhar
   }
 }
+
+// POST /auth/trocar-senha (Authorization: Bearer <token>) { senha_atual, senha, confirmacao }
+export async function apiTrocarSenha(token, body) {
+  return apiFetch('/auth/trocar-senha', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }, token);
+}

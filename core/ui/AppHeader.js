@@ -1,9 +1,17 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
 import { colors } from '../theme/colors';
+import { getScreenTitle } from '../navigation/screenTitles';
 
 export default function AppHeader({ title, onBack, onLogout, loggingOut, rightAction }) {
+  // Se a tela não passar `title`, resolve automaticamente pelo nome da rota
+  // (ver core/navigation/screenTitles.js) — evita repetir o título manualmente
+  // em toda tela nova.
+  const route = useRoute();
+  const resolvedTitle = title ?? getScreenTitle(route.name);
+
   return (
     <View style={styles.header}>
       <View style={styles.leftSlot}>
@@ -14,7 +22,7 @@ export default function AppHeader({ title, onBack, onLogout, loggingOut, rightAc
         ) : null}
       </View>
 
-      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      <Text style={styles.title} numberOfLines={1}>{resolvedTitle}</Text>
 
       <View style={styles.rightSlot}>
         {rightAction ?? null}
