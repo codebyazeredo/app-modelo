@@ -135,6 +135,10 @@ isso quando o app real precisar.
 
 ### Como usar
 
+Há um exemplo funcionando em `modules/Home/screens/HomeScreen.js` ("Nota
+rápida" → "Salvar offline"): salve algo lá e depois abra Ajustes > Ver fila
+detalhada (`SyncScreen`) para ver o item pendente e tentar sincronizar.
+
 **Enfileirar uma escrita que deve sobreviver offline** (em vez de chamar
 `apiFetch` direto na tela):
 
